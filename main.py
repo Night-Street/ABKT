@@ -72,6 +72,7 @@ def main():
     """
     Pipeline for ABKT
     """
+    os.makedirs("./Results/", exist_ok=True)
     args = parse_args()
     print("Checking the per-trained knowledge model...")
     KM_path = './Models/'+str(args.dataset)+'-'+str(args.type)+'/CMF-k-'+str(args.KM_k)+'-'+str(args.KM_guess)+'-earlystop'

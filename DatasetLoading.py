@@ -162,7 +162,7 @@ if __name__ == '__main__':
     # dataset = 'ASSISTment2009'
     # type = 'RandomIterateSection'
     dataset = 'AICFE'
-    type = 'math'
+    type = 'physics'
     min_length = 10
     load_dataset(dataset, type, min_length)
 

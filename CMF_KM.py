@@ -208,7 +208,7 @@ class CMF:
 
     def log_result(self):
         filename = os.path.split(__file__)[-1].split(".")[0]
-        f = open("./Results/" + filename + "-" + self.dataset + ".txt", "a+")
+        f = open("./Results/" + filename + "-" + self.dataset + ".txt", "w")
         f.write("datasets = " + self.dataset+ "\n")
         f.write("type = " + self.type+ "\n")
         f.write("k_hidden_num = " + str(self.k_hidden_size)+ " guess = " + str(self.guess)+ "\n")

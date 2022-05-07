@@ -286,7 +286,7 @@ class GMF_BOOSTING:
 
     def log_result(self):
         filename = os.path.split(__file__)[-1].split(".")[0]
-        f = open("./Results/" + filename + "-" + self.dataset +'-' + self.type + ".txt", "a+")
+        f = open("./Results/" + filename + "-" + self.dataset +'-' + self.type + ".txt", "w")
         f.write("datasets = " + self.dataset+ "\n")
         f.write("embedding_k = " + str(self.embedding_k) + "\n")
         f.write("CMF_k = " + str(self.CMF_k) + " CMF_guess = " + str(self.CMF_guess) + "\n")
