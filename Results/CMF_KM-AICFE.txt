@@ -1,9 +1,0 @@
-datasets = AICFE
-type = math
-k_hidden_num = 5 guess = 0.25
-Best ACC = 0.7388888888888889
-Best AUC = 0.8026217589137397
-Final ACC = 0.7287037037037037
-Final AUC = 0.8009365144329154
-
-
