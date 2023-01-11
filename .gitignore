@@ -136,3 +136,4 @@ settings.gradle
 /.git
 /Models
 /ProcessedData
+/Results
