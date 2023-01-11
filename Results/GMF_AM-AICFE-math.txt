@@ -1,10 +1,10 @@
 datasets = AICFE
-embedding_k = 32
+embedding_k = 64
 CMF_k = 5 CMF_guess = 0.25
 pretrain_clip = 0.4 combine method = add
 adjustment matrix = True GMF layers = 1
 m_lambda = 0.1
-Best ACC = 0.7509259259259259
-Best AUC = 0.8140384304527117
+Best ACC = 0.7490740740740741
+Best AUC = 0.8161398271420661
 
 

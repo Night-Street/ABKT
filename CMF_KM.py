@@ -6,20 +6,21 @@ import numpy as np
 import torch.utils.data as Data
 import torch.optim as opt
 from tqdm import tqdm
-from sklearn.metrics import roc_auc_score,accuracy_score
-from PytorchModels import K_CMF,IRT_2
+from sklearn.metrics import roc_auc_score, accuracy_score
+from PytorchModels import K_CMF, IRT_2
+
 
 class CMF:
     def __init__(self,
                  dataset='ASSISTment2009',
-                 type = 'RandomIterateSection',
+                 type='RandomIterateSection',
                  min_length=10,
                  early_stop=10,
                  epoch=100,
                  m_lr=0.0005,
-                 k_hidden_size = 5,
-                 device = 'cpu',
-                 guess = 0.25,
+                 k_hidden_size=5,
+                 device='cpu',
+                 guess=0.25,
                  ):
 
         self.dataset = dataset
@@ -31,32 +32,32 @@ class CMF:
         self.device = device
         self.guess = guess
 
-        save_dataset_path = './ProcessedData/' + dataset + '-' + type + '-' + str(min_length) +'-squence'
+        save_dataset_path = './ProcessedData/' + dataset + '-' + type + '-' + str(min_length) + '-squence'
         if os.access(save_dataset_path, os.F_OK):
             print("Processed data is existent...")
             print('Loading...')
             save_dataset_file = open(save_dataset_path, 'rb')
-            [self.user_num,self.item_num,self.skill_num,self.record_num,train_sequences,test_triplet,Q_matrix_s]\
+            [self.user_num, self.item_num, self.skill_num, self.record_num, train_sequences, test_triplet, Q_matrix_s] \
                 = pickle.load(save_dataset_file)
             save_dataset_file.close()
         else:
             print("Processed data is not existent...")
-            self.user_num,self.item_num,self.skill_num,self.record_num,train_sequences,test_triplet,Q_matrix_s = \
+            self.user_num, self.item_num, self.skill_num, self.record_num, train_sequences, test_triplet, Q_matrix_s = \
                 get_split_sequences(dataset, type, min_length)
 
-            train_test_sets = [self.user_num,self.item_num,self.skill_num,
-                               self.record_num,train_sequences,test_triplet,Q_matrix_s]
+            train_test_sets = [self.user_num, self.item_num, self.skill_num,
+                               self.record_num, train_sequences, test_triplet, Q_matrix_s]
             save_dataset_file = open(save_dataset_path, 'wb')
             pickle.dump(train_test_sets, save_dataset_file)
             save_dataset_file.close()
             print('Training set and test set are saved in', save_dataset_path)
         print("Data is processed which has:", self.user_num, 'students,',
-                  self.item_num, 'questions,',
-                  self.skill_num, 'skills,', self.record_num, 'records')
+              self.item_num, 'questions,',
+              self.skill_num, 'skills,', self.record_num, 'records')
 
-        print('*'*20,'hyperparameters','*'*20)
-        print('k_hidden_num:',self.k_hidden_size)
-        print('guess:',self.guess)
+        print('*' * 20, 'hyperparameters', '*' * 20)
+        print('k_hidden_num:', self.k_hidden_size)
+        print('guess:', self.guess)
 
         # 将数据整理放入torch中
         # 划分方法为每一个序列中随机分为Train和Test，其中序列的第一个不能是Test
@@ -83,11 +84,10 @@ class CMF:
         self.train_itemsq_length = torch.tensor(self.train_itemsq_length)
 
         self.test_sets = torch.tensor(test_triplet).long().to(self.device)
-        self.test_users = list(set(self.test_sets[:,0].tolist()))
+        self.test_users = list(set(self.test_sets[:, 0].tolist()))
 
         # 训练的index
         self.train_index = torch.arange(0, self.train_users.__len__(), 1)
-
 
     def train(self):
         print('*' * 20, 'start training', '*' * 20)
@@ -128,16 +128,16 @@ class CMF:
                 correctsq = self.train_correctsq[index].to(self.device)
                 itemsq_length = self.train_itemsq_length[index]
                 itemsq.to(self.device)
-                user_k,_,_ = self.K_CMF.forward(user,itemsq)
+                user_k, _, _ = self.K_CMF.forward(user, itemsq)
                 item_q = self.Q_matrix[itemsq, :]
-                item_k = self.K_CMF.item_k[itemsq,:]
+                item_k = self.K_CMF.item_k[itemsq, :]
 
-                pred = IRT_2(user_k[:-1, :],item_k,item_q,self.guess)
+                pred = IRT_2(user_k[:-1, :], item_k, item_q, self.guess)
 
                 train_pred_all.append(pred.detach().cpu().numpy())
                 train_pred01_all.append(pred.ge(0.5).float().detach().cpu().numpy())
                 train_correct_all.append(correctsq.cpu().numpy())
-                loss = BCEloss(pred.clamp(0,1), correctsq.float())
+                loss = BCEloss(pred.clamp(0, 1), correctsq.float())
                 bce_loss += loss
                 total_loss = loss
                 optimizer.zero_grad()
@@ -163,21 +163,21 @@ class CMF:
                 test_user = self.test_users[test_index]
                 train_index = self.train_users.index(test_user)
                 train_index_itemsq = self.train_itemsq[train_index].to(self.device)
-                train_model_output_k,_,_ = self.K_CMF.forward(train_index,train_index_itemsq)
-                test_out_k = train_model_output_k[-1,:]
+                train_model_output_k, _, _ = self.K_CMF.forward(train_index, train_index_itemsq)
+                test_out_k = train_model_output_k[-1, :]
                 test_user_state_k.append(test_out_k.unsqueeze(0))
 
-            test_user_state_k = torch.cat(test_user_state_k,0)
+            test_user_state_k = torch.cat(test_user_state_k, 0)
 
-            user_states_k = test_user_state_k[self.test_sets[:,0],:]
-            item_states_q = self.Q_matrix[self.test_sets[:,1],:]
-            item_state_k = self.K_CMF.item_k[self.test_sets[:,1],:]
-            pred = IRT_2(user_states_k,item_state_k,item_states_q,self.guess)
+            user_states_k = test_user_state_k[self.test_sets[:, 0], :]
+            item_states_q = self.Q_matrix[self.test_sets[:, 1], :]
+            item_state_k = self.K_CMF.item_k[self.test_sets[:, 1], :]
+            pred = IRT_2(user_states_k, item_state_k, item_states_q, self.guess)
             # print(pred.detach().cpu().numpy())
 
             test_pred_collect = pred.detach().cpu().numpy()
             test_pred01_collect = pred.ge(0.5).float().detach().cpu().numpy()
-            test_y_collect = self.test_sets[:,2].cpu().numpy()
+            test_y_collect = self.test_sets[:, 2].cpu().numpy()
 
             test_pred_all = test_pred_collect
             test_pred01_all = test_pred01_collect
@@ -189,7 +189,8 @@ class CMF:
 
             if AUC > self.bestAUC:
                 self.bestAUC = AUC
-                save_path_k = './Models/'+str(self.dataset)+'-'+str(self.type)+'/CMF-k-' + str(self.k_hidden_size)+ '-' + str(self.guess) + '-earlystop'
+                save_path_k = './Models/' + str(self.dataset) + '-' + str(self.type) + '/CMF-k-' + str(
+                    self.k_hidden_size) + '-' + str(self.guess) + '-earlystop'
                 torch.save(self.K_CMF.state_dict(), save_path_k)
                 stop = 0
             if ACC > self.bestACC:
@@ -197,21 +198,21 @@ class CMF:
                 stop = 0
             else:
                 stop = stop + 1
-            print('Test ACC:',ACC,'| Test AUC:',AUC)
+            print('Test ACC:', ACC, '| Test AUC:', AUC)
             print('Best ACC:', self.bestACC, '| Best AUC:', self.bestAUC)
-            if stop >= self.early_stop or epoch == self.epoch-1:
+            if stop >= self.early_stop or epoch == self.epoch - 1:
                 print('*' * 20, 'stop training', '*' * 20)
-                save_path_k = './Models/'+str(self.dataset)+'-'+str(self.type)+'/CMF-k-' + str(self.k_hidden_size) + '-' + str(self.guess) + '-epoch' + str(epoch)
+                save_path_k = './Models/' + str(self.dataset) + '-' + str(self.type) + '/CMF-k-' + str(
+                    self.k_hidden_size) + '-' + str(self.guess) + '-epoch' + str(epoch)
                 torch.save(self.K_CMF.state_dict(), save_path_k)
                 break
-
 
     def log_result(self):
         filename = os.path.split(__file__)[-1].split(".")[0]
         f = open("./Results/" + filename + "-" + self.dataset + ".txt", "w")
-        f.write("datasets = " + self.dataset+ "\n")
-        f.write("type = " + self.type+ "\n")
-        f.write("k_hidden_num = " + str(self.k_hidden_size)+ " guess = " + str(self.guess)+ "\n")
+        f.write("datasets = " + self.dataset + "\n")
+        f.write("type = " + self.type + "\n")
+        f.write("k_hidden_num = " + str(self.k_hidden_size) + " guess = " + str(self.guess) + "\n")
         f.write("Best ACC = " + str(self.bestACC) + "\n")
         f.write("Best AUC = " + str(self.bestAUC) + "\n")
         f.write("Final ACC = " + str(self.ACC) + "\n")
@@ -219,8 +220,6 @@ class CMF:
         f.write("\n")
         f.write("\n")
         print("The results are logged!!!")
-
-
 
 
 if __name__ == '__main__':
@@ -238,9 +237,3 @@ if __name__ == '__main__':
                       )
             cmf.train()
             cmf.log_result()
-
-
-
-
-
-

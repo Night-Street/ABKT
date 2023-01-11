@@ -18,30 +18,31 @@ import pickle
 import os
 import torch.utils.data as Data
 import torch.optim as opt
-from sklearn.metrics import roc_auc_score,accuracy_score
+from sklearn.metrics import roc_auc_score, accuracy_score
 from PytorchModels import K_CMF, GMF, IRT_2
 import numpy as np
 from scipy import sparse
 
+
 class GMF_BOOSTING:
     def __init__(self,
-                 embedding_k = 50,
-                 m_lr = 0.0001,
+                 embedding_k=50,
+                 m_lr=0.0001,
                  dataset='ASSISTment2009',
-                 type = 'RandomIterateSection',
-                 min_length = 10,
-                 early_stop = 50,
-                 batch_size = 128,
-                 epoch = 50000,
-                 CMF_k = 5,
-                 CMF_guess = 0.25,
-                 pretrain_clip = 0.4,
-                 combine = 'add',
-                 symmetric = True,
-                 adj = True,
-                 GMF_layer = 1,
-                 m_lambda = 0.1,
-                 device = 'cpu',
+                 type='RandomIterateSection',
+                 min_length=10,
+                 early_stop=50,
+                 batch_size=128,
+                 epoch=50000,
+                 CMF_k=5,
+                 CMF_guess=0.25,
+                 pretrain_clip=0.4,
+                 combine='add',
+                 symmetric=True,
+                 adj=True,
+                 GMF_layer=1,
+                 m_lambda=0.1,
+                 device='cpu',
                  ):
         self.embedding_k = embedding_k
         self.m_lr = m_lr
@@ -60,7 +61,6 @@ class GMF_BOOSTING:
         self.GMF_layer = GMF_layer
         self.m_lambda = m_lambda
         self.device = device
-
 
         save_dataset_path = './ProcessedData/' + dataset + '-' + type + '-' + str(min_length) + '-squence'
         if os.access(save_dataset_path, os.F_OK):
@@ -125,10 +125,12 @@ class GMF_BOOSTING:
         print('Computing output in Pre-trained model...')
         print('Training set...')
         # CMF_model.load_state_dict(torch.load('./Models/'+str(self.dataset)+'-'+str(self.type)+'/CMF-k-'+str(self.CMF_k)+'-'+str(self.CMF_guess)+'-epoch49'))
-        CMF_model.load_state_dict(torch.load('./Models/'+str(self.dataset)+'-'+str(self.type)+'/CMF-k-'+str(self.CMF_k)+'-'+str(self.CMF_guess)+'-earlystop'))
+        CMF_model.load_state_dict(torch.load(
+            './Models/' + str(self.dataset) + '-' + str(self.type) + '/CMF-k-' + str(self.CMF_k) + '-' + str(
+                self.CMF_guess) + '-earlystop'))
 
-        self.pre_train_output = []     #经过裁剪的CMF预测的知识层面做出题目的概率
-        self.user_final_state = {}     #学习者最后一个时刻的知识掌握情况
+        self.pre_train_output = []  # 经过裁剪的CMF预测的知识层面做出题目的概率
+        self.user_final_state = {}  # 学习者最后一个时刻的知识掌握情况
 
         for index in self.train_index:
             user = self.train_users[index]
@@ -136,10 +138,10 @@ class GMF_BOOSTING:
             user_k, _, _ = CMF_model.forward(user, itemsq)
             item_q = self.Q_matrix[itemsq, :]
             item_k = CMF_model.item_k[itemsq, :]
-            pred = IRT_2(user_k[:-1,:], item_k, item_q, self.CMF_guess)
-            clip_pred = pred.clamp(0+self.pretrain_clip,1-self.pretrain_clip)
+            pred = IRT_2(user_k[:-1, :], item_k, item_q, self.CMF_guess)
+            clip_pred = pred.clamp(0 + self.pretrain_clip, 1 - self.pretrain_clip)
             self.pre_train_output.append(clip_pred.detach())
-            self.user_final_state[user] = user_k[-1,:].detach().unsqueeze(0)
+            self.user_final_state[user] = user_k[-1, :].detach().unsqueeze(0)
         print('Testing set...')
         test_user_state_k = []
         # get the state of each user
@@ -152,7 +154,7 @@ class GMF_BOOSTING:
         pred_test = IRT_2(user_states_k, item_state_k, item_states_q, self.CMF_guess).detach()
         clip_pred_test = pred_test.clamp(0 + self.pretrain_clip, 1 - self.pretrain_clip)
         self.pre_test_output = clip_pred_test
-        self.test_sets = torch.cat([self.test_sets,self.pre_test_output.unsqueeze(1)],1)
+        self.test_sets = torch.cat([self.test_sets, self.pre_test_output.unsqueeze(1)], 1)
 
         print('Convert squence trainingset to triplet...')
         train_sets = []
@@ -162,14 +164,14 @@ class GMF_BOOSTING:
                 item = self.train_itemsq[index][indexi]
                 correct = self.train_correctsq[index][indexi]
                 pre_output = self.pre_train_output[index][indexi]
-                triplet = torch.tensor([user,item,correct,pre_output]).unsqueeze(0)
+                triplet = torch.tensor([user, item, correct, pre_output]).unsqueeze(0)
                 train_sets.append(triplet)
-        self.train_sets = torch.cat(train_sets,0)
+        self.train_sets = torch.cat(train_sets, 0)
 
         print("Building adjacent matrix...")
 
-        aj_row = np.append(self.train_sets[:,0].numpy(), self.train_sets[:, 1].numpy()+self.user_num)
-        aj_col = np.append(self.train_sets[:, 1].numpy()+self.user_num, self.train_sets[:,0].numpy())
+        aj_row = np.append(self.train_sets[:, 0].numpy(), self.train_sets[:, 1].numpy() + self.user_num)
+        aj_col = np.append(self.train_sets[:, 1].numpy() + self.user_num, self.train_sets[:, 0].numpy())
         aj_data = np.ones(self.train_sets.shape[0] * 2)
         aj_matrix = sparse.coo_matrix((aj_data, (aj_row, aj_col)),
                                       shape=(self.user_num + self.item_num, self.user_num + self.item_num)).tocsr()
@@ -191,21 +193,18 @@ class GMF_BOOSTING:
         i = torch.tensor(indices)
         v = torch.tensor(values)
         shape = aj_norm.shape
-        self.aj_norm = torch.sparse_coo_tensor(i,v,shape)
+        self.aj_norm = torch.sparse_coo_tensor(i, v, shape)
 
         self.train_sets = self.train_sets.to(self.device)
         self.aj_norm = self.aj_norm.to(self.device)
 
-
-
-
     def train(self):
-        print('*'*20,'start training','*'*20)
-        y = self.train_sets[:,2]
-        k = self.train_sets[:,3]
-        g = y/k-(1-y)/(1-k)
-        w = -(y/(torch.pow(k,2))+(1-y)/(torch.pow((1-k),2)))
-        self.train_sets = torch.cat([self.train_sets,g.unsqueeze(1),w.unsqueeze(1)], 1)
+        print('*' * 20, 'start training', '*' * 20)
+        y = self.train_sets[:, 2]
+        k = self.train_sets[:, 3]
+        g = y / k - (1 - y) / (1 - k)
+        w = -(y / (torch.pow(k, 2)) + (1 - y) / (torch.pow((1 - k), 2)))
+        self.train_sets = torch.cat([self.train_sets, g.unsqueeze(1), w.unsqueeze(1)], 1)
 
         train_data_loader = Data.DataLoader(
             dataset=self.train_sets,
@@ -214,8 +213,8 @@ class GMF_BOOSTING:
         )
         self.bestACC = 0
         self.bestAUC = 0
-        self.model = GMF(self.user_num, self.item_num, self.embedding_k,self.aj_norm,
-                         self.adj,self.GMF_layer).to(self.device)
+        self.model = GMF(self.user_num, self.item_num, self.embedding_k, self.aj_norm,
+                         self.adj, self.GMF_layer).to(self.device)
         optimizer = opt.Adam(self.model.parameters(), lr=self.m_lr)
         stop = 0
         for e in range(self.epoch):
@@ -225,12 +224,12 @@ class GMF_BOOSTING:
             for batch_idx, batch in enumerate(train_data_loader):
                 optimizer.zero_grad()
                 batch_num = batch.shape[0]
-                u_idx = batch[:,0].long()
-                i_idx = batch[:,1].long()
-                y_batch = batch[:,2]
-                k_batch = batch[:,3]
-                g_batch = batch[:,4]
-                w_batch = batch[:,5]
+                u_idx = batch[:, 0].long()
+                i_idx = batch[:, 1].long()
+                y_batch = batch[:, 2]
+                k_batch = batch[:, 3]
+                g_batch = batch[:, 4]
+                w_batch = batch[:, 5]
 
                 pred, u_norm, i_norm = self.model.forward(u_idx, i_idx)
                 if self.combine == 'add':
@@ -263,9 +262,9 @@ class GMF_BOOSTING:
 
             test_pred_01 = test_pred.ge(0.5).float()
             test_pred = test_pred.cpu().detach().numpy()
-            test_correct = self.test_sets[:,2].cpu().numpy()
+            test_correct = self.test_sets[:, 2].cpu().numpy()
             test_pred_01 = test_pred_01.cpu().detach().numpy()
-            ACC = accuracy_score(test_correct,test_pred_01)
+            ACC = accuracy_score(test_correct, test_pred_01)
             AUC = roc_auc_score(test_correct, test_pred)
             if AUC > self.bestAUC:
                 self.bestAUC = AUC
@@ -278,16 +277,16 @@ class GMF_BOOSTING:
                 self.bestACC = ACC
                 stop = 0
             stop = stop + 1
-            print('Test ACC:',ACC,'| Test AUC:',AUC)
+            print('Test ACC:', ACC, '| Test AUC:', AUC)
             if stop >= self.early_stop:
                 print('*' * 20, 'stop training', '*' * 20)
-                print('Best ACC:',self.bestACC,'| Best AUC:',self.bestAUC)
+                print('Best ACC:', self.bestACC, '| Best AUC:', self.bestAUC)
                 break
 
     def log_result(self):
         filename = os.path.split(__file__)[-1].split(".")[0]
-        f = open("./Results/" + filename + "-" + self.dataset +'-' + self.type + ".txt", "w")
-        f.write("datasets = " + self.dataset+ "\n")
+        f = open("./Results/" + filename + "-" + self.dataset + '-' + self.type + ".txt", "w")
+        f.write("datasets = " + self.dataset + "\n")
         f.write("embedding_k = " + str(self.embedding_k) + "\n")
         f.write("CMF_k = " + str(self.CMF_k) + " CMF_guess = " + str(self.CMF_guess) + "\n")
         f.write("pretrain_clip = " + str(self.pretrain_clip) + " combine method = " + str(self.combine) + "\n")
@@ -298,18 +297,3 @@ class GMF_BOOSTING:
         f.write("\n")
         f.write("\n")
         print("The results are logged!!!")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

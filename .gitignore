@@ -134,3 +134,5 @@ settings.gradle
 /__pycache__
 
 /.git
+/Models
+/ProcessedData

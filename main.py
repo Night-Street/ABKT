@@ -13,8 +13,14 @@
 """
 import argparse
 import os
+import random
+
+import numpy as np
+import torch
+
 from CMF_KM import CMF
 from GMF_AM import GMF_BOOSTING
+
 
 def parse_args():
     """
@@ -61,11 +67,28 @@ def parse_args():
                         help='The type of the joint model. Default is "add". Choose from ["add","mul"]. ')
 
     # hyper-parameters in training process
+    parser.add_argument('--seed', type=int, default=0,
+                        help='The random seed is training process.')
     parser.add_argument('--device', default="cuda:0",
                         help='The working device of pytorch, '
                              'Default is "cpu", choose from ["cpu","cuda:0","cuda:1",...] ')
 
     return parser.parse_args()
+
+
+def setup_seed(seed=0):
+    # Python built-in random module
+    random.seed(seed)
+    # Numpy
+    np.random.seed(seed)
+    # Torch
+    from torch.backends import cudnn
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    cudnn.benchmark = False
+    cudnn.deterministic = True
 
 
 def main():
@@ -75,7 +98,8 @@ def main():
     os.makedirs("./Results/", exist_ok=True)
     args = parse_args()
     print("Checking the per-trained knowledge model...")
-    KM_path = './Models/'+str(args.dataset)+'-'+str(args.type)+'/CMF-k-'+str(args.KM_k)+'-'+str(args.KM_guess)+'-earlystop'
+    KM_path = './Models/' + str(args.dataset) + '-' + str(args.type) + '/CMF-k-' + str(args.KM_k) + '-' + str(
+        args.KM_guess) + '-earlystop'
     if os.access(KM_path, os.F_OK) and args.use_pertrained_model:
         print("per-trained knowledge model is existent...")
     else:
@@ -105,7 +129,6 @@ def main():
     )
     gmf.train()
     gmf.log_result()
-
 
 
 if __name__ == "__main__":
