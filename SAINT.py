@@ -90,6 +90,7 @@ class SAINT(nn.Module):
         return out.squeeze(-1)
 
 
-saint = SAINT(5, 30, 12, 120, torch.zeros((100, 30)), 'cpu')
-out = saint(3, torch.Tensor([5, 5, 5, 5]), torch.Tensor([1, 0, 1, 0]))
-print(out)
+if __name__ == '__main__':
+    saint = SAINT(5, 30, 12, 120, torch.zeros((100, 30)), 'cpu')
+    out = saint.forward(3, torch.Tensor([5, 5, 5, 5]), torch.Tensor([1, 0, 1, 0]))
+    print(out)
